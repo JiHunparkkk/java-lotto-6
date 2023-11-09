@@ -7,6 +7,7 @@ import static lotto.util.message.Guide.PURCHASE_AMOUNT;
 import static lotto.util.message.Guide.WINNING_NUMBER;
 import static lotto.view.InputView.input;
 
+import java.util.List;
 import lotto.model.BonusNumber;
 import lotto.model.Lottos;
 import lotto.model.Purchase;
@@ -20,7 +21,7 @@ public class InputController {
     public static User makeUser() {
         Purchase purchase = payMoney();
         Lottos lottos = buyLottos(purchase);
-        
+
         return new User(purchase, lottos);
     }
 
@@ -31,14 +32,14 @@ public class InputController {
         return new WinningLotto(winningNumber, bonusNumber);
     }
 
+
     private static Purchase payMoney() {
-        try {
+        CheckedSupplier<Purchase> purchaseSupplier = () -> {
             int money = stringToInt(input(PURCHASE_AMOUNT.getMessage()));
             return new Purchase(money);
-        } catch (IllegalArgumentException exception) {
-            OutputView.printError(exception.getMessage());
-            return payMoney();
-        }
+        };
+
+        return handleException(purchaseSupplier);
     }
 
     private static Lottos buyLottos(Purchase purchase) {
@@ -48,25 +49,35 @@ public class InputController {
     }
 
     private static WinningNumber getWinningLotto() {
-        String winningNumberInput = input(WINNING_NUMBER.getMessage());
+        CheckedSupplier<WinningNumber> WinningNumberSupplier = () -> {
+            List<Integer> list = stringToList(input(WINNING_NUMBER.getMessage()));
+            return new WinningNumber(list);
+        };
 
-        try {
-            return new WinningNumber(stringToList(winningNumberInput));
-        } catch (IllegalArgumentException exception) {
-            OutputView.printError(exception.getMessage());
-            return getWinningLotto();
-        }
+        return handleException(WinningNumberSupplier);
     }
 
     private static BonusNumber getBonusLotto(WinningNumber winningNumber) {
-        String bonus = input(BONUS_NUMBER.getMessage());
+        CheckedSupplier<BonusNumber> BonusNumberSupplier = () -> {
+            String bonusNumber = input(BONUS_NUMBER.getMessage());
+            return new BonusNumber(stringToInt(bonusNumber), winningNumber.getWinning());
+        };
 
+        return handleException(BonusNumberSupplier);
+    }
+
+    private static <T> T handleException(CheckedSupplier<T> supplier) {
         try {
-            return new BonusNumber(stringToInt(bonus), winningNumber.getWinning());
+            return supplier.get();
         } catch (IllegalArgumentException exception) {
             OutputView.printError(exception.getMessage());
-            return getBonusLotto(winningNumber);
+            return handleException(supplier);
         }
+    }
+
+    @FunctionalInterface
+    public interface CheckedSupplier<T> {
+        T get() throws IllegalArgumentException;
     }
 
 }
